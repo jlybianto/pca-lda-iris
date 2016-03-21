@@ -127,3 +127,56 @@ eigen_pair = [(np.abs(eigen_val[n]), eigen_vec[:, n]) for n in range(len(eigen_v
 total = sum(eigen_val)
 var = [(n / total) * 100 for n in sorted(eigen_val, reverse=True)]
 cum_var = np.cumsum(var)
+
+sklearn_PCA = sklearnPCA(n_components=75)
+sklearn_Y = sklearn_PCA.fit_transform(x)
+
+# ----------------
+# MODEL RANDOM FOREST DATA AFTER PCA
+# ----------------
+
+df = pd.DataFrame(sklearn_Y)
+df = pd.merge(y, df, left_index=True, right_index=True)
+df = pd.merge(df, subjects, left_index=True, right_index=True)
+data["Activity"] = pd.Categorical(data["Activity"]).labels
+
+# Partitioning of aggregate data into training, testing and validation data sets
+train = data.query("Subject >= 27")
+test = data.query("Subject <= 6")
+valid = data.query("(Subject >= 21) & (Subject < 27)")
+
+# Fit random forest model with training data.
+n = raw_input("Insert number of estimators to be used (10-500): ")
+train_target = train["Activity"]
+train_data = train.ix[:, 1:-2]
+rfc = RandomForestClassifier(n_estimators=int(n), oob_score=True)
+rfc.fit(train_data, train_target)
+print("")
+
+# Calculate Out-Of-Bag (OOB) score
+print("Out-Of-Bag (OOB) Score: %f" % rfc.oob_score_)
+print("")
+
+# Define test set to make predictions
+test_target = test["Activity"]
+test_data = test.ix[:, 1:-2]
+test_pred = rfc.predict(test_data)
+
+# Calculation of scores
+print("Mean Accuracy score for test data set = %f" %(rfc.score(test_data, test_target)))
+
+print("Precision = %f" %(skm.precision_score(test_target, test_pred)))
+print("Recall = %f" %(skm.recall_score(test_target, test_pred)))
+print("F1 Score = %f" %(skm.f1_score(test_target, test_pred)))
+print("")
+
+# ----------------
+# VISUALIZE DATA
+# ----------------
+
+# Visualization through a confusion matrix
+graph = skm.confusion_matrix(test_target, test_pred)
+plt.matshow(graph)
+plt.title('Confusion Matrix for Test Data')
+plt.colorbar()
+plt.show()
